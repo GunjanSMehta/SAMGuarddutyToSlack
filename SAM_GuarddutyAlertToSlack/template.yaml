@@ -1,0 +1,49 @@
+AWSTemplateFormatVersion: 2010-09-09
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  WebhookUrl:
+    Type: String
+    Description: Your unique Incoming Web Hook URL from slack service
+    Default: 'https://hooks.slack.com/services/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'
+  SlackChannel:
+    Type: String
+    Description: The slack channel to send findings to
+    Default: '#receiving-alerts-from-guardduty-via-slack'
+    
+Resources:
+ GuarddutyToSlack:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      CodeUri: slack_notification/
+      Handler: app.lambda_handler
+      Runtime: python3.7
+      Timeout: 3
+    Environment:
+        Variables:
+          WEBHOOK_URL: !Ref WebhookUrl
+          SLACK_CHANNEL: !Ref SlackChannel
+      
+ ScheduledRule:
+    Type: 'AWS::Events::Rule'
+    Properties:
+      Description: >-
+        CloudWatch Event Rule to trigger Lambda for High Severity GuardDuty
+        Findings
+      State: ENABLED
+      EventPattern:
+        source:
+          - aws.guardduty
+        detail-type:
+          - GuardDuty Finding
+        detail:
+          severity:
+            - 7
+            - 8
+            - 9
+            - 10
+      Targets:
+        - Arn: !GetAtt 
+            - GuarddutyToSlack
+            - Arn
+          Id: GuardDutyFunction
+
